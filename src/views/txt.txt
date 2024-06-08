@@ -1,0 +1,126 @@
+<template>
+  <div id="app">
+    <header>
+      <select v-if="boards.length" v-model="currentBoardId">
+        <option disabled value="">Please select a board</option>
+        <option v-for="board in boards" :key="board.id" :value="board.id">
+          {{ board.name }}
+        </option>
+      </select>
+    </header>
+    <main>
+      <BoardDetails v-if="currentBoardId" :boardId="currentBoardId" />
+    </main>
+  </div>
+</template>
+
+<script>
+import axios from 'axios';
+import BoardDetails from './components/BoardDetails.vue';
+
+export default {
+  components: {
+    BoardDetails,
+  },
+  data() {
+    return {
+      boards: [],
+      currentBoardId: '',
+    };
+  },
+  methods: {
+    async fetchBoards() {
+      const key = 'YOUR_API_KEY';
+      const token = 'YOUR_TOKEN';
+      const url = `https://api.trello.com/1/members/me/boards?key=${key}&token=${token}`;
+
+      try {
+        const response = await axios.get(url);
+        this.boards = response.data;
+      } catch (error) {
+        console.error('Error fetching boards:', error);
+      }
+    },
+  },
+  mounted() {
+    this.fetchBoards();
+  },
+};
+</script>
+
+<style scoped>
+
+#app {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  color: #172b4d;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background-color: #026aa7;
+  padding: 10px 20px;
+  color: white;
+}
+
+header select {
+  color: #172b4d;
+  font-size: 16px;
+  padding: 5px;
+  border-radius: 4px;
+  margin-left: 10px;
+}
+
+main {
+  flex-grow: 1;
+  overflow-y: auto;
+  background-color: #0079bf;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.board-details {
+  background-color: #ebecf0;
+  border-radius: 3px;
+  width: 100%;
+  min-height: 100px;
+  overflow-x: auto;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 20px;
+  padding: 10px;
+}
+
+.list {
+  background-color: #ebecf0;
+  border-radius: 3px;
+  width: 272px;
+  min-height: 100px;
+  padding: 10px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.list h3 {
+  padding: 10px;
+  font-weight: bold;
+  background-color: #026aa7;
+  color: white;
+  border-radius: 3px;
+}
+
+.card-item {
+  background-color: #fff;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(9,30,66,.25);
+  padding: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+</style>
