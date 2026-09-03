@@ -1,4 +1,4 @@
-FROM node:20-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/package.json
@@ -6,7 +6,7 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
 RUN npm ci --ignore-scripts
 
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_SITE_URL
@@ -19,7 +19,7 @@ COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
 RUN npm run build -w @trelltech/web
 
-FROM node:20-alpine AS runner
+FROM node:26-alpine AS runner
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
