@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BoardRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  trelloId     String?  @unique
+  username     String
+  fullName     String?
+  email        String?  @unique
+  passwordHash String?
+  avatarUrl    String?
+  trelloToken  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspaces           Workspace[]
+  boardMemberships     BoardMembership[]
+  workspaceMemberships WorkspaceMembership[]
+  docMemberships       DocMembership[]
+  whiteboardMemberships WhiteboardMembership[]
+  assignedCards        Card[]                 @relation("CardMembers")
+  comments             Comment[]
+  activities           Activity[]
+  notifications        Notification[]
+  docs                 Doc[]
+  whiteboards          Whiteboard[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String    @id @default(cuid())
+  trelloId    String?   @unique
+  name        String
+  displayName String
+  description String?
+  ownerId     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  syncedAt    DateTime?
+
+  owner       User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  boards      Board[]
+  docs        Doc[]
+  whiteboards Whiteboard[]
+  memberships WorkspaceMembership[]
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+model WorkspaceMembership {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        BoardRole @default(EDITOR)
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_memberships")
+}
+
+model Board {
+  id          String    @id @default(cuid())
+  trelloId    String?   @unique
+  workspaceId String
+  name        String
+  description String?
+  background  String?
+  closed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  syncedAt    DateTime?
+
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lists         List[]
+  labels        Label[]
+  memberships   BoardMembership[]
+  notifications Notification[]
+
+  @@index([workspaceId])
+  @@map("boards")
+}
+
+model BoardMembership {
+  id        String    @id @default(cuid())
+  boardId   String
+  userId    String
+  role      BoardRole @default(EDITOR)
+  createdAt DateTime  @default(now())
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+  @@index([userId])
+  @@map("board_memberships")
+}
+
+model Label {
+  id       String  @id @default(cuid())
+  trelloId String? @unique
+  boardId  String
+  name     String
+  color    String
+
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards Card[] @relation("CardLabels")
+
+  @@index([boardId])
+  @@map("labels")
+}
+
+model List {
+  id        String    @id @default(cuid())
+  trelloId  String?   @unique
+  boardId   String
+  name      String
+  position  Float     @default(65536)
+  closed    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  syncedAt  DateTime?
+
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards Card[]
+
+  @@index([boardId])
+  @@map("lists")
+}
+
+model Card {
+  id          String    @id @default(cuid())
+  trelloId    String?   @unique
+  listId      String
+  name        String
+  description String?
+  position    Float     @default(65536)
+  dueDate     DateTime?
+  dueComplete Boolean   @default(false)
+  closed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  syncedAt    DateTime?
+
+  list          List           @relation(fields: [listId], references: [id], onDelete: Cascade)
+  labels        Label[]        @relation("CardLabels")
+  members       User[]         @relation("CardMembers")
+  checklists    Checklist[]
+  comments      Comment[]
+  attachments   Attachment[]
+  activities    Activity[]
+  notifications Notification[]
+
+  @@index([listId])
+  @@map("cards")
+}
+
+model Checklist {
+  id       String @id @default(cuid())
+  cardId   String
+  name     String
+  position Float  @default(65536)
+
+  card  Card            @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  items ChecklistItem[]
+
+  @@index([cardId])
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id          String  @id @default(cuid())
+  checklistId String
+  name        String
+  checked     Boolean @default(false)
+  position    Float   @default(65536)
+
+  checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId])
+  @@map("checklist_items")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  cardId    String
+  authorId  String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  card   Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  cardId    String
+  name      String
+  url       String
+  mime      String?
+  isCover   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@map("attachments")
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  cardId    String
+  userId    String?
+  type      String
+  data      Json?
+  createdAt DateTime @default(now())
+
+  card Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([cardId])
+  @@map("activities")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  boardId   String?
+  cardId    String?
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  board Board? @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  card  Card?  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model Doc {
+  id          String   @id @default(cuid())
+  workspaceId String
+  title       String
+  icon        String?
+  blocks      Json     @default("[]")
+  position    Float    @default(65536)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  memberships DocMembership[]
+
+  @@index([workspaceId])
+  @@map("docs")
+}
+
+model DocMembership {
+  id        String    @id @default(cuid())
+  docId     String
+  userId    String
+  role      BoardRole @default(EDITOR)
+  createdAt DateTime  @default(now())
+
+  doc  Doc  @relation(fields: [docId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([docId, userId])
+  @@index([userId])
+  @@map("doc_memberships")
+}
+
+model Whiteboard {
+  id          String   @id @default(cuid())
+  workspaceId String
+  title       String
+  scene       Json     @default("{}")
+  position    Float    @default(65536)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User?                  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  memberships WhiteboardMembership[]
+
+  @@index([workspaceId])
+  @@map("whiteboards")
+}
+
+model WhiteboardMembership {
+  id           String    @id @default(cuid())
+  whiteboardId String
+  userId       String
+  role         BoardRole @default(EDITOR)
+  createdAt    DateTime  @default(now())
+
+  whiteboard Whiteboard @relation(fields: [whiteboardId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([whiteboardId, userId])
+  @@index([userId])
+  @@map("whiteboard_memberships")
+}

@@ -1,0 +1,211 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f7f7f9;
+  --surface: #ffffff;
+  --surface-muted: #f1f1f4;
+  --border: #e5e5ea;
+  --text: #1a1a1f;
+  --text-muted: #6b6b76;
+  --brand: #5b5bd6;
+  --brand-hover: #4a4ac2;
+  --brand-contrast: #ffffff;
+  --danger: #e5484d;
+  --success: #30a46c;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(24, 24, 32, 0.06), 0 1px 3px rgba(24, 24, 32, 0.04);
+  --shadow-md: 0 8px 24px rgba(24, 24, 32, 0.12), 0 2px 6px rgba(24, 24, 32, 0.08);
+}
+
+.dark {
+  --bg: #0e0e12;
+  --surface: #17171d;
+  --surface-muted: #1f1f27;
+  --border: #2a2a33;
+  --text: #f2f2f5;
+  --text-muted: #9a9aa6;
+  --brand: #7c7cf0;
+  --brand-hover: #8f8ff5;
+  --brand-contrast: #0e0e12;
+  --danger: #ff6369;
+  --success: #3dd68c;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-contrast: var(--brand-contrast);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--font-jakarta), var(--font-inter), sans-serif;
+
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--brand) 30%, transparent);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+    background-clip: content-box;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes tt-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tt-scale-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tt-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tt-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in {
+  animation: tt-fade-in 0.18s ease-out both;
+}
+.animate-scale-in {
+  animation: tt-scale-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.animate-slide-in {
+  animation: tt-slide-in 0.2s ease-out both;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted) 25%,
+    color-mix(in srgb, var(--surface-muted) 60%, var(--border)) 37%,
+    var(--surface-muted) 63%
+  );
+  background-size: 200% 100%;
+  animation: tt-shimmer 1.4s ease-in-out infinite;
+}
+
+.tt-blocknote .bn-editor {
+  background-color: transparent;
+  padding-inline: 0;
+}
+.tt-blocknote .bn-container {
+  font-family: var(--font-sans);
+}
+
+.excalidraw {
+  --color-primary: var(--brand);
+  --color-primary-darker: var(--brand-hover);
+  --color-primary-darkest: var(--brand-hover);
+}

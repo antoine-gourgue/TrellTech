@@ -1,0 +1,176 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      pm: ${{ steps.detect.outputs.pm }}
+      node: ${{ steps.detect.outputs.node }}
+      lockfile: ${{ steps.detect.outputs.lockfile }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: detect
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "pm=pnpm" >> "$GITHUB_OUTPUT"
+            echo "lockfile=pnpm-lock.yaml" >> "$GITHUB_OUTPUT"
+          elif [ -f package-lock.json ]; then
+            echo "pm=npm" >> "$GITHUB_OUTPUT"
+            echo "lockfile=package-lock.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Aucun lockfile trouvé (package-lock.json ou pnpm-lock.yaml). Committe ton lockfile."
+            exit 1
+          fi
+
+          if [ -f .nvmrc ]; then
+            echo "node=$(tr -d 'v \n' < .nvmrc)" >> "$GITHUB_OUTPUT"
+          else
+            echo "node=22" >> "$GITHUB_OUTPUT"
+          fi
+
+  checks:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck, build]
+    name: ${{ matrix.task }}
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        if: needs.prepare.outputs.pm == 'pnpm'
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ needs.prepare.outputs.node }}
+          cache: ${{ needs.prepare.outputs.pm }}
+          cache-dependency-path: ${{ needs.prepare.outputs.lockfile }}
+
+      - name: Install
+        run: ${{ needs.prepare.outputs.pm == 'pnpm' && 'pnpm install --frozen-lockfile' || 'npm ci' }}
+
+      - name: Prisma generate
+        if: hashFiles('apps/api/prisma/schema.prisma') != ''
+        run: ${{ needs.prepare.outputs.pm }} run db:generate -w @trelltech/api
+
+      - name: ${{ matrix.task }}
+        run: ${{ needs.prepare.outputs.pm }} run --if-present ${{ matrix.task }}
+
+  test:
+    needs: prepare
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: trelltech
+          POSTGRES_PASSWORD: trelltech
+          POSTGRES_DB: trelltech
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trelltech -d trelltech"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://trelltech:trelltech@localhost:5432/trelltech?schema=public
+      SESSION_SECRET: ci_session_secret_change_me_please
+      WEB_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        if: needs.prepare.outputs.pm == 'pnpm'
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ needs.prepare.outputs.node }}
+          cache: ${{ needs.prepare.outputs.pm }}
+          cache-dependency-path: ${{ needs.prepare.outputs.lockfile }}
+
+      - name: Install
+        run: ${{ needs.prepare.outputs.pm == 'pnpm' && 'pnpm install --frozen-lockfile' || 'npm ci' }}
+
+      - name: Prisma generate
+        if: hashFiles('apps/api/prisma/schema.prisma') != ''
+        run: ${{ needs.prepare.outputs.pm }} run db:generate -w @trelltech/api
+
+      - name: Migrations
+        if: hashFiles('apps/api/prisma/migrations/**') != ''
+        run: ${{ needs.prepare.outputs.pm }} run db:deploy -w @trelltech/api
+
+      - name: Test
+        run: ${{ needs.prepare.outputs.pm }} run --if-present test
+
+  commitlint:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ needs.prepare.outputs.node }}
+
+      - name: Vérifie les messages de commit
+        run: |
+          npx --yes \
+            --package @commitlint/cli \
+            --package @commitlint/config-conventional \
+            -- commitlint \
+              --extends @commitlint/config-conventional \
+              --from "${{ github.event.pull_request.base.sha }}" \
+              --to "${{ github.event.pull_request.head.sha }}" \
+              --verbose
+    needs: prepare
+
+  deploy:
+    name: Deploy to VPS
+    needs: [checks, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+    steps:
+      - name: Deploy over SSH
+        if: env.VPS_HOST != ''
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.VPS_PATH }}"
+            git fetch --all
+            git reset --hard origin/main
+            docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+            docker image prune -f

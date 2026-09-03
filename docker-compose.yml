@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: trelltech-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trelltech
+      POSTGRES_PASSWORD: trelltech
+      POSTGRES_DB: trelltech
+    ports:
+      - '5432:5432'
+    volumes:
+      - trelltech_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U trelltech -d trelltech']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  trelltech_pgdata:

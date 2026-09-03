@@ -1,52 +1,97 @@
-# TrellTech-Frontend
+# TrellTech
 
-This template should help get you started developing with Vue 3 in Vite.
+Un espace de travail façon Trello, en plus complet : **tableaux** kanban, **documents**
+type Notion et **whiteboards** Excalidraw, avec collaboration temps réel, partage
+granulaire et synchronisation Trello. Compte email/mot de passe, Trello branché en
+option depuis les réglages.
 
-## Recommended IDE Setup
+## Fonctionnalités
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
+- **Tableaux** : espaces de travail, tableaux, listes, cartes, drag & drop (@dnd-kit).
+- **Cartes riches** : description Markdown, échéances, étiquettes, checklists, commentaires, membres, pièces jointes, activité.
+- **Documents** : éditeur à blocs type Notion (BlockNote), autosave.
+- **Whiteboards** : canvas Excalidraw, autosave, thème synchronisé.
+- **Temps réel** : WebSocket, mises à jour live du tableau, présence.
+- **Partage** : au niveau espace de travail (accès à tout) ou par module (tableau / doc / whiteboard), par invitation ou lien signé. Section « Partagé avec moi ».
+- **Vues** : tableau, calendrier, table, filtres, palette de commandes (Cmd-K), archives.
+- **Auth** : inscription / connexion email + mot de passe (bcrypt), notifications, page paramètres.
+- **Trello** : intégration liable/déliable depuis les réglages, import et synchronisation.
 
-## Type Support for `.vue` Imports in TS
+## Stack
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin) to make the TypeScript language service aware of `.vue` types.
+- **Front** : Next.js 15 (App Router), React 19, Tailwind CSS v4, @tanstack/react-query, @dnd-kit, BlockNote, Excalidraw.
+- **API** : Node + TypeScript, Fastify, Prisma, PostgreSQL, WebSocket, bundlée avec tsup.
+- **Partagé** : `@trelltech/shared` (types + schémas Zod), source de vérité des contrats.
+- **Monorepo** : npm workspaces.
 
-If the standalone TypeScript plugin doesn't feel fast enough to you, Volar has also implemented a [Take Over Mode](https://github.com/johnsoncodehk/volar/discussions/471#discussioncomment-1361669) that is more performant. You can enable it by the following steps:
+## Structure
 
-1. Disable the built-in TypeScript Extension
-    1) Run `Extensions: Show Built-in Extensions` from VSCode's command palette
-    2) Find `TypeScript and JavaScript Language Features`, right click and select `Disable (Workspace)`
-2. Reload the VSCode window by running `Developer: Reload Window` from the command palette.
+```
+apps/
+  web/    → Next.js (@trelltech/web)
+  api/    → Fastify + Prisma (@trelltech/api)
+packages/
+  shared/ → contrats Zod partagés (@trelltech/shared)
+docs/     → DESIGN, API, DEPLOY
+```
 
-## Customize configuration
+## Démarrage local
 
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+Prérequis : **Node 20+**, **npm**, **Docker** (pour PostgreSQL).
 
-## Project Setup
-
-```sh
+```bash
+# 1. Dépendances
 npm install
+
+# 2. Base de données
+npm run db:up                 # PostgreSQL via docker-compose
+
+# 3. Configuration API
+cp .env.example apps/api/.env # puis renseigner (au minimum DATABASE_URL, SESSION_SECRET)
+
+# 4. Migrations + données de démo
+npm run db:migrate
+npm run db:seed
+
+# 5. Lancer front + API
+npm run dev                   # web sur :3000, API sur :4000
 ```
 
-### Compile and Hot-Reload for Development
+Compte de démo (créé par le seed) : **demo@trelltech.local** / **password123**.
 
-```sh
-npm run dev
-```
+L'intégration Trello est optionnelle : elle se lie depuis **Paramètres → Intégration
+Trello**. Les clés Trello (`TRELLO_API_KEY` / `TRELLO_API_SECRET`) se récupèrent sur
+https://trello.com/power-ups/admin.
 
-### Type-Check, Compile and Minify for Production
+## Scripts (racine)
 
-```sh
-npm run build
-```
+| Commande             | Effet                                            |
+| -------------------- | ------------------------------------------------ |
+| `npm run dev`        | Front + API en watch                             |
+| `npm run build`      | Build de tous les workspaces                     |
+| `npm run typecheck`  | `tsc --noEmit` partout                           |
+| `npm run lint`       | Lint de tous les workspaces                      |
+| `npm run test`       | Tests (Vitest côté API)                          |
+| `npm run db:up`      | Démarre PostgreSQL (Docker)                      |
+| `npm run db:migrate` | Applique les migrations Prisma                   |
+| `npm run db:seed`    | Peuple la base de démo                           |
+| `npm run db:studio`  | Ouvre Prisma Studio                              |
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+## Variables d'environnement
 
-```sh
-npm run test:unit
-```
+Voir [`.env.example`](.env.example). Côté API : `DATABASE_URL`, `SESSION_SECRET`,
+`WEB_ORIGIN`, `TRELLO_API_KEY`, `TRELLO_API_SECRET`, `TRELLO_OAUTH_CALLBACK_URL`.
+Côté web : `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`. Les vrais `.env` sont
+gitignorés — ne jamais les commiter.
 
-### Lint with [ESLint](https://eslint.org/)
+## CI / CD & déploiement
 
-```sh
-npm run lint
-```
+CI GitHub Actions (lint, typecheck, tests avec PostgreSQL, build) sur chaque push et PR.
+Déploiement continu sur VPS via SSH (`docker compose -f docker-compose.prod.yml`).
+Détails et configuration des domaines dans [docs/DEPLOY.md](docs/DEPLOY.md).
+
+## Documentation
+
+- [docs/DESIGN.md](docs/DESIGN.md) — design system.
+- [docs/API.md](docs/API.md) — endpoints de l'API.
+- [docs/DEPLOY.md](docs/DEPLOY.md) — déploiement VPS, domaines, reverse proxy.
