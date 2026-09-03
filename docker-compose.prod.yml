@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - trelltech_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      WEB_ORIGIN: ${WEB_ORIGIN}
+      TRELLO_API_KEY: ${TRELLO_API_KEY:-}
+      TRELLO_API_SECRET: ${TRELLO_API_SECRET:-}
+      TRELLO_OAUTH_CALLBACK_URL: ${TRELLO_OAUTH_CALLBACK_URL:-http://localhost:4000/api/auth/trello/callback}
+    # Lié à localhost : seul le reverse-proxy hôte (TLS + domaines) y accède.
+    ports:
+      - '127.0.0.1:${API_PORT:-4000}:4000'
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    # Lié à localhost : seul le reverse-proxy hôte (TLS + domaines) y accède.
+    ports:
+      - '127.0.0.1:${WEB_PORT:-3000}:3000'
+
+volumes:
+  trelltech_pgdata:
