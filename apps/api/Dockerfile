@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/package.json
@@ -9,7 +9,7 @@ COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 RUN npm run build -w @trelltech/api
 
-FROM node:20-alpine AS prod-deps
+FROM node:26-alpine AS prod-deps
 WORKDIR /app/apps/api
 COPY apps/api/package.json ./package.json
 # Install isolé des seules deps runtime de l'API : le bundle tsup inline déjà
@@ -19,7 +19,7 @@ RUN npm pkg delete dependencies.@trelltech/shared scripts.postinstall \
 COPY apps/api/prisma ./prisma
 RUN npx prisma generate
 
-FROM node:20-alpine AS runner
+FROM node:26-alpine AS runner
 ENV NODE_ENV=production
 RUN apk add --no-cache openssl \
  && addgroup -S nodejs && adduser -S nodejs -G nodejs
